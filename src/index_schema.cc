@@ -295,6 +295,9 @@ IndexSchema::IndexSchema(ValkeyModuleCtx *ctx,
       stop_words_(index_schema_proto.stop_words().begin(),
                   index_schema_proto.stop_words().end()),
       skip_initial_scan_(index_schema_proto.skip_initial_scan()),
+      score_field_(index_schema_proto.has_score_field()
+                       ? index_schema_proto.score_field()
+                       : ""),
       min_stem_size_(index_schema_proto.min_stem_size() > 0
                          ? index_schema_proto.min_stem_size()
                          : 4),
@@ -1085,7 +1088,7 @@ void IndexSchema::RespondWithInfo(ValkeyModuleCtx *ctx) const {
   ValkeyModule_ReplyWithSimpleString(ctx, name_.data());
 
   ValkeyModule_ReplyWithSimpleString(ctx, "index_definition");
-  ValkeyModule_ReplyWithArray(ctx, 6);
+  ValkeyModule_ReplyWithArray(ctx, 8);
   ValkeyModule_ReplyWithSimpleString(ctx, "key_type");
   ValkeyModule_ReplyWithSimpleString(ctx,
                                      attribute_data_type_->ToString().c_str());
@@ -1098,6 +1101,10 @@ void IndexSchema::RespondWithInfo(ValkeyModuleCtx *ctx) const {
   // supported.
   ValkeyModule_ReplyWithSimpleString(ctx, "default_score");
   ValkeyModule_ReplyWithCString(ctx, "1");
+
+  ValkeyModule_ReplyWithSimpleString(ctx, "score_field_name");
+  ValkeyModule_ReplyWithSimpleString(
+      ctx, score_field_.empty() ? "" : score_field_.c_str());
 
   ValkeyModule_ReplyWithSimpleString(ctx, "attributes");
   ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
@@ -1197,6 +1204,9 @@ std::unique_ptr<data_model::IndexSchema> IndexSchema::ToProto() const {
   index_schema_proto->mutable_stop_words()->Assign(stop_words_.begin(),
                                                    stop_words_.end());
   index_schema_proto->set_skip_initial_scan(skip_initial_scan_);
+  if (!score_field_.empty()) {
+    index_schema_proto->set_score_field(score_field_);
+  }
 
   auto stats = index_schema_proto->mutable_stats();
   stats->set_documents_count(stats_.document_cnt);
