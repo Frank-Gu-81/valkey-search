@@ -597,20 +597,17 @@ void IndexSchema::ProcessKeyspaceNotification(ValkeyModuleCtx *ctx,
   // Read the per-document score from SCORE_FIELD if configured
   float document_score = score_;
   if (key_obj && HasScoreField()) {
-    ValkeyModuleString *score_record = nullptr;
-    ValkeyModule_HashGet(key_obj.get(), VALKEYMODULE_HASH_CFIELDS,
-                         score_field_.c_str(), &score_record, NULL);
-    if (score_record) {
-      // Parse directly from the ValkeyModuleString's internal buffer (no copy).
-      // Use the parsed value if succeeded; otherwise, fall back to the default
-      // score silently. Raw value is stored without clamping. The scoring 
-      // algorithm decides how to handle values at query time. 
+    auto score_record = attribute_data_type_->GetRecord(ctx, key_obj.get(),
+                                                        key_cstr, score_field_);
+    if (score_record.ok()) {
+      // Parse the value as a float. If it fails (non-numeric), fall back to
+      // the default score silently. Raw value is stored without clamping.
+      // The scoring algorithm decides how to handle values at query time.
       float value;
-      auto str_view = vmsdk::ToStringView(score_record);
+      auto str_view = vmsdk::ToStringView(score_record.value().get());
       if (absl::SimpleAtof(str_view, &value)) {
         document_score = value;
       }
-      ValkeyModule_FreeString(nullptr, score_record);
     }
   }
 
@@ -1139,8 +1136,7 @@ void IndexSchema::RespondWithInfo(ValkeyModuleCtx *ctx) const {
   ValkeyModule_ReplyWithCString(ctx, absl::StrCat(score_).c_str());
 
   ValkeyModule_ReplyWithSimpleString(ctx, "score_field");
-  ValkeyModule_ReplyWithSimpleString(
-      ctx, score_field_.empty() ? "" : score_field_.c_str());
+  ValkeyModule_ReplyWithSimpleString(ctx, score_field_.c_str());
 
   ValkeyModule_ReplyWithSimpleString(ctx, "attributes");
   ValkeyModule_ReplyWithArray(ctx, VALKEYMODULE_POSTPONED_ARRAY_LEN);
