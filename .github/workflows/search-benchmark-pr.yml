@@ -76,7 +76,7 @@ jobs:
   # does not care how it was started.
   resolve:
     if: |
-      github.repository == 'valkey-io/valkey-search' && (
+      github.repository == 'Frank-Gu-81/valkey-search' && (
         github.event_name == 'workflow_dispatch' ||
         (github.event.action == 'labeled' &&
          (github.event.label.name == 'run-search-benchmark' || github.event.label.name == 'run-search-benchmark-skip-profiling'))
