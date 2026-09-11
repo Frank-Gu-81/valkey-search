@@ -77,6 +77,8 @@ function ensure_gcc_amazon_linux() {
         LOG_INFO "✓ GCC 14 installed and symlinked into /usr/local/bin"
     fi
 
+    sudo dnf install -y gcc14-libstdc++-static
+
     /usr/local/bin/gcc --version
     /usr/local/bin/g++ --version
 }
