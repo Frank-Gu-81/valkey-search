@@ -79,6 +79,14 @@ function ensure_gcc_amazon_linux() {
 
     sudo dnf install -y gcc14-libstdc++-static
 
+    local libstdcpp_a
+    libstdcpp_a=$(/usr/local/bin/g++ -print-file-name=libstdc++.a)
+    if [[ "${libstdcpp_a}" == "libstdc++.a" || ! -f "${libstdcpp_a}" ]]; then
+        LOG_ERROR "static libstdc++ for /usr/local/bin/g++ not found"
+        exit 1
+    fi
+    LOG_INFO "✓ static libstdc++ found at ${libstdcpp_a}"
+
     /usr/local/bin/gcc --version
     /usr/local/bin/g++ --version
 }

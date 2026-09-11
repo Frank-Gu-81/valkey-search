@@ -263,7 +263,8 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           repository: ${{ github.repository }}
-          ref: ${{ needs.resolve.outputs.base_ref }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || needs.resolve.outputs.base_ref }}
+          # ref: ${{ needs.resolve.outputs.base_ref }}
           path: valkey-search-trusted-ci
           fetch-depth: 1
           persist-credentials: false
