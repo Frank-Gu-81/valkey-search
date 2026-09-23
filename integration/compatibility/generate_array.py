@@ -330,8 +330,9 @@ class TestArrayInputCompatibility(BaseCompatibilityTest):
     def test_sortby_missing_field(self, key_type):
         """SORTBY on an absent field.
 
-        Compare answers kUNORDERED against a nil and SortFunctor treats that
-        as a tie, so valkey leaves such records in scan order.
+        A record with no value for the key sorts after every record that has
+        one, ascending and descending alike, and two such records tie so the
+        next sort key decides between them. Both are Redisearch's rule.
         """
         self.setup_data(DATASET_EMPTY, key_type)
         for tail in [
@@ -342,24 +343,73 @@ class TestArrayInputCompatibility(BaseCompatibilityTest):
         ]:
             self._missing_pipeline(key_type, tail)
 
-    def test_array_vs_array_compare(self, key_type):
-        """Comparing two arrays -- a query Redisearch accepts.
+    def test_compare_against_a_missing_field(self, key_type):
+        """A comparison with a missing operand matches nothing.
 
-        Both engines compare lexicographically, but each over its own element
-        order, so the answers only agree when those orders happen to agree.
+        `Compare` answers "unordered" when either side is absent, and every
+        comparison operator used to read that as equality -- so `@a == @b` was
+        true whenever either field was missing, and so were `<=` and `>=`.
+        Comparing against a literal hid it, because the record was dropped for
+        other reasons; comparing two fields is what shows it.
+
+        Both are swept because the two directions fail differently: `==` and
+        `<=` used to admit records they should not, `!=` used to reject
+        records it should not.
+        """
+        self.setup_data(DATASET_EMPTY, key_type)
+        for op in ["==", "!=", "<", "<=", ">", ">="]:
+            self._missing_pipeline(key_type, f"filter (@n2){op}(@n1)")
+            self._missing_pipeline(key_type, f"filter (@t2){op}(@t1)")
+        # And the same comparison as an APPLY, where the value itself reaches
+        # the reply rather than deciding whether the row survives.
+        for op in ["==", "!="]:
+            self._missing_pipeline(
+                key_type, f"apply (@n2){op}(@n1) as cmp")
+
+    def test_groupby_missing_field_many_groups(self, key_type):
+        """Grouping on an absent field, with enough distinct present values
+        that a hash collision is certain rather than occasional.
+
+        GroupKey compared its keys with the operator above, so a record with
+        no value was "equal" to whichever key the hash map happened to compare
+        it against, and it joined that group. With four distinct values it
+        almost never showed; the defect was found through a case with more.
+        """
+        self.setup_data(DATASET_EMPTY, key_type)
+        for tail in [
+            "groupby 1 @n2 reduce count 0 as c",
+            "groupby 1 @n1 reduce count 0 as c",
+            "groupby 2 @n2 @t2 reduce count 0 as c",
+            "groupby 1 @n2 reduce sum 1 @n1 as total",
+        ]:
+            self._missing_pipeline(key_type, tail)
+
+    def test_array_vs_array_compare(self, key_type):
+        """Comparing two arrays -- a query Redisearch accepts, and answers by a
+        rule valkey-search deliberately does not follow.
+
+        Redisearch reads only the first element of each array, so `[5]` and
+        `[5,7]` are equal to it. valkey-search compares element by element and
+        then by length, so they are not. DATASET_COMPARE is built to tell those
+        rules apart, and the answers diverge on the groups where the first
+        elements match and the rest does not.
+
+        Captured but excluded: the replay only checks that valkey-search does
+        not crash. See known_differences.md 1.5 for why the rule is not adopted,
+        and why recording a comparison here would be unstable even if it were --
+        TOLIST's element order is unspecified, and Redisearch's answer follows
+        whichever element its hash table happens to yield first.
         """
         self.setup_data(DATASET_COMPARE, key_type)
-        # The ordered comparisons -- "<", "<=", ">=", ">" -- are left out: both
-        # engines compare element by element, so their answer follows whichever
-        # element each engine happens to hold first, and Redisearch's order is
-        # its hash table's. Equality is unaffected by that for these shapes.
+        # The ordered comparisons -- "<", "<=", ">=", ">" -- are left out for
+        # the same reason, and were left out before equality joined them.
         for op in ["==", "!="]:
             cmd = ["ft.aggregate", f"{key_type}_idx1", FILTER_QUERY]
             cmd += ("load 3 @n1 @n2 @t1 groupby 1 @t1 "
                     "reduce tolist 1 @n1 as items "
                     "reduce tolist 1 @n2 as items2 "
                     f"apply (@items){op}(@items2) as result").split()
-            self.execute_command(cmd + ["DIALECT", "2"])
+            self.execute_command(cmd + ["DIALECT", "2"], excluded=True)
 
     ### FILTER ###
 
