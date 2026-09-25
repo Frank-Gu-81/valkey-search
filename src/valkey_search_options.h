@@ -6,7 +6,6 @@
  */
 #pragma once
 
-#include "src/indexes/scoring/scorer.h"
 #include "vmsdk/src/info.h"  // IWYU pragma: keep
 #include "vmsdk/src/module_config.h"
 #include "vmsdk/src/utils.h"
@@ -112,6 +111,9 @@ config::Number &GetThreadPoolWaitTimeSamples();
 /// suffix, fuzzy)
 config::Number &GetMaxTermExpansions();
 
+/// Return the maximum value FT.HYBRID accepts for COMBINE ... WINDOW
+config::Number &GetMaxCombineWindow();
+
 /// Return the maximum number of group keys one record may expand to when
 /// GROUPBY is given multi-value fields
 config::Number &GetMaxGroupKeyExpansion();
@@ -170,6 +172,9 @@ config::Number &GetMutationWeightTag();
 /// Return the recursion depth of the query string from FT.SEARCH and
 /// FT.AGGREGATE commands
 config::Number &GetQueryStringDepth();
+
+/// Return the configuration entry for vector unshare batch size
+config::Number &GetVectorUnshareBatchSize();
 
 /// Return the configuration entry that controls compatibility-bug emulation.
 /// See COMPATIBILITY.md for the semantics.
